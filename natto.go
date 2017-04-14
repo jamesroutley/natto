@@ -19,6 +19,15 @@ var debug = flag.Bool("debug", false, "Enable debug logging.")
 var noIndent = flag.Bool("no-indent", false,
 	"Print site map without indentation.")
 
+func init() {
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr,
+			"Usage: natto [-concurrency] [-debug] [-no-indent] URL")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\n")
+	}
+}
+
 func setupLogging(debug bool) {
 	if !debug {
 		log.SetOutput(ioutil.Discard)
@@ -32,12 +41,6 @@ func throw(message string) {
 }
 
 func main() {
-	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr,
-			"Usage: natto [-concurrency] [-debug] [-no-indent] URL")
-		flag.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\n")
-	}
 	flag.Parse()
 	setupLogging(*debug)
 	rawurl := flag.Arg(0)
