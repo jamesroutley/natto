@@ -4,7 +4,7 @@ Natto is a simple command-line web crawler. Given a starting URL, Natto will cra
 
 ## Example
 
-```
+```shell
 $ natto http://tomblomfield.com
 {
   "pages": {
@@ -25,7 +25,7 @@ $ natto http://tomblomfield.com
 
 ## API
 
-```
+```shell
 Usage: natto [-concurrency] [-debug] [-no-indent] URL
   -concurrency int
     	Number of concurrent requests. (default 10)
@@ -37,7 +37,7 @@ Usage: natto [-concurrency] [-debug] [-no-indent] URL
 
 ## Install
 
-```
+```shell
 $ make install
 ```
 
