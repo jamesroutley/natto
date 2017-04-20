@@ -62,7 +62,3 @@ natto -concurrency=10 http://tomblomfield.com  0.25s user 0.10s system 8% cpu 4.
 natto -concurrency=20 http://tomblomfield.com  0.26s user 0.11s system 9% cpu 4.024 total
 natto -concurrency=50 http://tomblomfield.com  0.30s user 0.14s system 12% cpu 3.738 total
 ```
-
-## Future work
-
-- A plugin system for the Parser. It would be elegant to be able to define parser rules separately from the core parser code.
