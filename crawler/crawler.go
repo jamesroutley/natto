@@ -17,6 +17,7 @@ type SiteMap struct {
 	Pages map[string]parser.PageDetails `json:"pages"`
 }
 
+// namedPageDetails stores the url of a webpage, along with its details.
 type namedPageDetails struct {
 	url     *url.URL
 	details parser.PageDetails
