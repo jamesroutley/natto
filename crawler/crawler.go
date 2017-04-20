@@ -28,26 +28,24 @@ type Crawler struct {
 	startURL *url.URL
 	siteMap  *SiteMap
 	idx      index
-	parallel int
+	concur int
 }
 
 // New instantiates and returns a new Crawler.
-func New(u *url.URL, parallel int) *Crawler {
+func New(u *url.URL, concur int) *Crawler {
 	siteMap := &SiteMap{Pages: make(map[string]parser.PageDetails)}
 	idx := make(index)
 	idx.add(u)
-	c := &Crawler{u, siteMap, idx, parallel}
+	c := &Crawler{u, siteMap, idx, concur}
 	return c
 }
 
 // Crawl returns the SiteMap of a website.
-// TODO: Stop this being a method
 func (c *Crawler) Crawl() *SiteMap {
-	// TODO: is there a more clever way than using a counter?
 	count := counter{}
-	pagesToVisit := make(chan *url.URL, c.parallel)
-	results := make(chan namedPageDetails, c.parallel)
-	for i := 0; i < c.parallel; i++ {
+	pagesToVisit := make(chan *url.URL, c.concur)
+	results := make(chan namedPageDetails, c.concur)
+	for i := 0; i < c.concur; i++ {
 		go crawlPage(c.startURL, pagesToVisit, results)
 	}
 	for {
@@ -76,6 +74,7 @@ func (c *Crawler) Crawl() *SiteMap {
 	}
 }
 
+// crawlPage visits and parses pages sent to 'urls', writing results to 'results'
 func crawlPage(startURL *url.URL, urls <-chan *url.URL, results chan<- namedPageDetails) {
 	for {
 		select {
@@ -97,7 +96,7 @@ func crawlPage(startURL *url.URL, urls <-chan *url.URL, results chan<- namedPage
 	}
 }
 
-// counter
+// counter counts items.
 type counter struct {
 	val int
 }
