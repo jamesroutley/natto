@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"time"
+	// "time"
 )
 
 // SiteMap describes the properties of a website.
@@ -29,7 +29,7 @@ type Crawler struct {
 	startURL *url.URL
 	siteMap  *SiteMap
 	idx      index
-	concur int
+	concur   int
 }
 
 // New instantiates and returns a new Crawler.
@@ -49,51 +49,45 @@ func (c *Crawler) Crawl() *SiteMap {
 	for i := 0; i < c.concur; i++ {
 		go crawlPage(c.startURL, pagesToVisit, results)
 	}
-	for {
-		select {
-		case result := <-results:
-			for _, link := range result.details.InternalLinks {
-				linkURL, _ := url.Parse(link)
-				c.idx.add(linkURL)
-			}
-			c.siteMap.Pages[result.url.String()] = result.details
-			count.decr()
-		default:
-			unvisitedLinks := c.idx.getUnvisitedLinks()
-			numUnvisitedLinks := len(unvisitedLinks)
-			if numUnvisitedLinks == 0 && count.val == 0 {
-				return c.siteMap
-			} else if numUnvisitedLinks > 0 {
-				l := unvisitedLinks[0]
-				c.idx.markVisited(l)
-				pagesToVisit <- l
-				count.incr()
-			} else {
-				time.Sleep(100 * time.Millisecond)
-			}
+	unvisitedLinks := c.idx.getUnvisitedLinks()
+	pagesToVisit <- unvisitedLinks[0]
+	count.incr()
+	for result := range results {
+		log.Println("reading result from ", result.url.String())
+		c.siteMap.Pages[result.url.String()] = result.details
+		count.decr()
+		for _, link := range result.details.InternalLinks {
+			// TODO: catch err
+			linkURL, _ := url.Parse(link)
+			c.idx.add(linkURL)
 		}
+		unvisitedLinks := c.idx.getUnvisitedLinks()
+		numUnvisitedLinks := len(unvisitedLinks)
+		if numUnvisitedLinks == 0 && count.val == 0 {
+			break
+		}
+		l := unvisitedLinks[0]
+		c.idx.markVisited(l)
+		count.incr()
+		pagesToVisit <- l
 	}
+	return c.siteMap
 }
 
 // crawlPage visits and parses pages sent to 'urls', writing results to 'results'
 func crawlPage(startURL *url.URL, urls <-chan *url.URL, results chan<- namedPageDetails) {
-	for {
-		select {
-		case u := <-urls:
-			body, err := getWebpage(u)
-			if err != nil {
-				log.Printf("Error reading webpage '%s': %v", u, err)
-				return
-			}
-			details := parser.ParseWebpage(startURL, bytes.NewReader(body))
-			namedDetails := namedPageDetails{
-				url:     u,
-				details: details,
-			}
-			results <- namedDetails
-		default:
-			time.Sleep(50 * time.Millisecond)
+	for u := range urls {
+		body, err := getWebpage(u)
+		if err != nil {
+			log.Printf("Error reading webpage '%s': %v", u, err)
+			return
 		}
+		details := parser.ParseWebpage(startURL, bytes.NewReader(body))
+		namedDetails := namedPageDetails{
+			url:     u,
+			details: details,
+		}
+		results <- namedDetails
 	}
 }
 
