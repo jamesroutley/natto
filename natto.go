@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/jamesroutley/natto/crawler"
 	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
+
+	"github.com/jamesroutley/natto/crawler"
 )
 
 var concur = flag.Int("concurrency", 10, "Number of concurrent requests.")
