@@ -51,8 +51,8 @@ func main() {
 			"Could not validate url '%s'.\n%v.\n", rawurl, err)
 		throw(message)
 	}
-	c := crawler.New(u, *concur)
-	siteMap := c.Crawl()
+	// c := crawler.New(u, *concur)
+	siteMap := crawler.Crawl(u, *concur)
 	var jsonSiteMap []byte
 	if *noIndent {
 		jsonSiteMap, err = json.Marshal(siteMap)

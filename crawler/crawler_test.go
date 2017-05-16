@@ -68,8 +68,7 @@ func TestCrawl(t *testing.T) {
 	killServer := startServer(t, PORT)
 	defer killServer()
 	u := mustParse(t, addr)
-	c := New(u, 3)
-	siteMap := c.Crawl()
+	siteMap := Crawl(u, 3)
 	if !reflect.DeepEqual(expected, *siteMap) {
 		t.Fatalf("Expected %v, got %v", expected, siteMap)
 	}

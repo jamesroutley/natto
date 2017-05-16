@@ -23,55 +23,40 @@ type namedPageDetails struct {
 	details parser.PageDetails
 }
 
-// Crawler implements a simple web crawler. Should be instantiated with the
-// New function.
-type Crawler struct {
-	startURL *url.URL
-	siteMap  *SiteMap
-	idx      index
-	concur   int
-}
-
-// New instantiates and returns a new Crawler.
-func New(u *url.URL, concur int) *Crawler {
+// Crawl returns the SiteMap of a website.
+func Crawl(startURL *url.URL, concur int) *SiteMap {
 	siteMap := &SiteMap{Pages: make(map[string]parser.PageDetails)}
 	idx := make(index)
-	idx.add(u)
-	c := &Crawler{u, siteMap, idx, concur}
-	return c
-}
-
-// Crawl returns the SiteMap of a website.
-func (c *Crawler) Crawl() *SiteMap {
+	idx.add(startURL)
 	count := counter{}
-	pagesToVisit := make(chan *url.URL, c.concur)
-	results := make(chan namedPageDetails, c.concur)
-	for i := 0; i < c.concur; i++ {
-		go crawlPage(c.startURL, pagesToVisit, results)
+	pagesToVisit := make(chan *url.URL, concur)
+	results := make(chan namedPageDetails, concur)
+	for i := 0; i < concur; i++ {
+		go crawlPage(startURL, pagesToVisit, results)
 	}
-	unvisitedLinks := c.idx.getUnvisitedLinks()
+	unvisitedLinks := idx.getUnvisitedLinks()
 	pagesToVisit <- unvisitedLinks[0]
 	count.incr()
 	for result := range results {
 		log.Println("reading result from ", result.url.String())
-		c.siteMap.Pages[result.url.String()] = result.details
+		siteMap.Pages[result.url.String()] = result.details
 		count.decr()
 		for _, link := range result.details.InternalLinks {
 			// TODO: catch err
 			linkURL, _ := url.Parse(link)
-			c.idx.add(linkURL)
+			idx.add(linkURL)
 		}
-		unvisitedLinks := c.idx.getUnvisitedLinks()
+		unvisitedLinks := idx.getUnvisitedLinks()
 		numUnvisitedLinks := len(unvisitedLinks)
 		if numUnvisitedLinks == 0 && count.val == 0 {
 			break
 		}
 		l := unvisitedLinks[0]
-		c.idx.markVisited(l)
+		idx.markVisited(l)
 		count.incr()
 		pagesToVisit <- l
 	}
-	return c.siteMap
+	return siteMap
 }
 
 // crawlPage visits and parses pages sent to 'urls', writing results to 'results'
