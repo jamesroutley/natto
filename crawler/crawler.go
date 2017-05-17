@@ -25,36 +25,43 @@ type namedPageDetails struct {
 
 // Crawl returns the SiteMap of a website.
 func Crawl(startURL *url.URL, concur int) *SiteMap {
+	index := make(map[string]bool)
 	siteMap := &SiteMap{Pages: make(map[string]parser.PageDetails)}
-	idx := make(index)
-	idx.add(startURL)
 	count := counter{}
+
+	// Create worker goroutines
 	pagesToVisit := make(chan *url.URL, concur)
-	results := make(chan namedPageDetails, concur)
+	results := make(chan namedPageDetails, 100)//concur)
 	for i := 0; i < concur; i++ {
 		go crawlPage(startURL, pagesToVisit, results)
 	}
-	unvisitedLinks := idx.getUnvisitedLinks()
-	pagesToVisit <- unvisitedLinks[0]
+
+	pagesToVisit <- startURL
+	index[startURL.String()] = true
 	count.incr()
 	for result := range results {
 		log.Println("reading result from ", result.url.String())
 		siteMap.Pages[result.url.String()] = result.details
-		count.decr()
 		for _, link := range result.details.InternalLinks {
-			// TODO: catch err
-			linkURL, _ := url.Parse(link)
-			idx.add(linkURL)
+			linkURL, err := url.Parse(link)
+			if err != nil {
+				log.Fatal("Could not parse url '%s': %v", link, err)
+			}
+			linkURL.Fragment = ""
+			linkURL.RawQuery = ""
+			if !index[linkURL.String()] {
+				log.Println("Adding", linkURL.String(), "to pagesToVisit")
+				log.Println("len(pagesToVisit)", len(pagesToVisit))
+				pagesToVisit <- linkURL
+				index[linkURL.String()] = true
+				count.incr()
+			}
 		}
-		unvisitedLinks := idx.getUnvisitedLinks()
-		numUnvisitedLinks := len(unvisitedLinks)
-		if numUnvisitedLinks == 0 && count.val == 0 {
+		count.decr()
+		if count.val == 0 {
 			break
 		}
-		l := unvisitedLinks[0]
-		idx.markVisited(l)
-		count.incr()
-		pagesToVisit <- l
+		log.Println("looping round: len(results)", len(results))
 	}
 	return siteMap
 }
@@ -72,6 +79,8 @@ func crawlPage(startURL *url.URL, urls <-chan *url.URL, results chan<- namedPage
 			url:     u,
 			details: details,
 		}
+		log.Println("returning results from", u.String())
+		log.Println("len(results)", len(results))
 		results <- namedDetails
 	}
 }
@@ -84,6 +93,7 @@ type counter struct {
 // incr increments the counter by 1.
 func (c *counter) incr() {
 	c.val++
+	log.Println("incremented count:", c.val)
 }
 
 // decr decrements the counter by 1. Panics if val goes below 0.
@@ -93,6 +103,7 @@ func (c *counter) decr() {
 		panic("Counter's val cannot go below 0.")
 	}
 	c.val = nextVal
+	log.Println("decremented count:", c.val)
 }
 
 // index is a map of internal links found on the website.
@@ -134,7 +145,7 @@ func (i index) getUnvisitedLinks() []*url.URL {
 
 // getWebpage gets and returns the contents of a webpage.
 func getWebpage(u *url.URL) ([]byte, error) {
-	log.Printf("Fetching HTML from '%s'", u)
+	// log.Printf("Fetching HTML from '%s'", u)
 	resp, err := http.Get(u.String())
 	if err != nil {
 		return nil, err
