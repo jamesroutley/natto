@@ -3,10 +3,11 @@
 package parser
 
 import (
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 	"io"
 	"net/url"
+
+	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 // PageDetails describes certain properties of an HTML page.
@@ -17,12 +18,13 @@ type PageDetails struct {
 }
 
 // ParseWebpage parses the HTML webpage.
-func ParseWebpage(pageURL *url.URL, webpage io.Reader) PageDetails {
+func ParseWebpage(pageURL *url.URL, webpage io.Reader) (PageDetails, error) {
 	details := PageDetails{}
 	tokenizer := html.NewTokenizer(webpage)
 	for {
 		if tokenizer.Next() == html.ErrorToken {
-			return details
+			// TODO: handle this error
+			return details, nil
 		}
 		token := tokenizer.Token()
 		// The attributes we're interested in all exist in HTML opening tags.
@@ -43,7 +45,10 @@ func ParseWebpage(pageURL *url.URL, webpage io.Reader) PageDetails {
 			if !ok {
 				continue
 			}
-			u, _ := url.Parse(rawurl)
+			u, err := url.Parse(rawurl)
+			if err != nil {
+				return PageDetails{}, err
+			}
 			resolvedURL := pageURL.ResolveReference(u)
 			if resolvedURL.Host == pageURL.Host {
 				details.InternalLinks = append(details.InternalLinks,

@@ -1,11 +1,12 @@
 package parser
 
 import (
-	"golang.org/x/net/html"
 	"net/url"
 	"reflect"
 	"strings"
 	"testing"
+
+	"golang.org/x/net/html"
 )
 
 func TestParse(t *testing.T) {
