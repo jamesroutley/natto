@@ -37,6 +37,7 @@ func ParseWebpage(pageURL *url.URL, webpage io.Reader) (PageDetails, error) {
 			if !ok {
 				continue
 			}
+			// TODO: handle this error
 			u, _ := url.Parse(rawurl)
 			resolvedURL := pageURL.ResolveReference(u)
 			details.Assets = append(details.Assets, resolvedURL.String())

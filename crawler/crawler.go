@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/jamesroutley/natto/domain"
-	"github.com/jamesroutley/natto/parser"
 	"github.com/jamesroutley/natto/queue"
 )
 
@@ -21,85 +20,111 @@ var (
 )
 
 // TODO: return dead links from here
-func Crawl(startURL *url.URL, workers int) {
-	startURL = normaliseURL(startURL)
+func Crawl(url string, workers int) {
+	startURL, err := normaliseURL(url, url)
+	if err != nil {
+		log.Fatal(err)
+	}
 	q := queue.NewQueue()
 
 	q.Add(&domain.Job{URL: startURL})
-	fmt.Println(startURL.String())
-	indexNew[startURL.String()] = true
+	indexNew[startURL] = true
 
 	// TODO: unbuffer
-	deadLinks := make(chan string, 1000)
+	results := make(chan *domain.Job, 1000)
 
 	for i := 0; i < workers; i++ {
-		go crawlPageNew(startURL, q, deadLinks)
+		go crawl(startURL, q, results)
 	}
 
 	q.Wait()
 
-	close(deadLinks)
+	close(results)
 
-	for link := range deadLinks {
-		fmt.Println(link)
+	for job := range results {
+		fmt.Println(job.URL)
 	}
 }
 
-func crawlPageNew(startURL *url.URL, q *queue.Queue, deadLinks chan string) {
+func crawl(startURL string, q *queue.Queue, results chan *domain.Job) {
 	for {
 		message := q.Next()
 		job := message.Job
 
-		fmt.Printf("Crawling %s\n", job.URL)
+		fmt.Println(job.URL)
 
 		body, err := getWebpage(job.URL)
 		if err != nil {
 			log.Printf("Error reading webpage '%s': %v", job.URL, err)
 			return
 		}
-		details, err := parser.ParseWebpage(startURL, bytes.NewReader(body))
+		links, err := parseWebpage(bytes.NewReader(body))
 		if err != nil {
 			log.Print(err)
 			// TODO: log error in job
 			q.Delete(message)
 			continue
 		}
-		for _, link := range details.ExternalLinks {
-			deadLinks <- link
-		}
 
-		for _, link := range details.InternalLinks {
-
-			u, err := url.Parse(link)
+		for _, link := range links {
+			var err error
+			link, err = normaliseURL(startURL, link)
 			if err != nil {
-				fmt.Printf("Error parsing %s: %v", link, err)
+				log.Printf("Could not normalise link '%s', skipping: %v", link, err)
 				continue
 			}
-			u = normaliseURL(u)
 
 			indexLock.Lock()
-			if seen := indexNew[u.String()]; !seen {
-				q.Add(&domain.Job{URL: u})
-				indexNew[u.String()] = true
+			if seen := indexNew[link]; !seen {
+				q.Add(&domain.Job{URL: link})
+				indexNew[link] = true
 			}
 			indexLock.Unlock()
 		}
+
+		results <- job
 
 		q.Delete(message)
 	}
 }
 
-func normaliseURL(u *url.URL) *url.URL {
+func normaliseURL(baseURL, link string) (string, error) {
+	b, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+	u, err := url.Parse(link)
+	if err != nil {
+		return "", err
+	}
 	u.Fragment = ""
 	u.RawQuery = ""
 
-	return u
+	if u.Host == "" {
+		u.Host = b.Host
+		u.Scheme = b.Scheme
+	}
+
+	return u.String(), nil
+}
+
+func isInternalURL(baseURL, link string) (bool, error) {
+	b, err := url.Parse(baseURL)
+	if err != nil {
+		return false, err
+	}
+	u, err := url.Parse(link)
+	if err != nil {
+		return false, err
+	}
+
+	return b.Host == u.Host, nil
 }
 
 // getWebpage gets and returns the contents of a webpage.
-func getWebpage(u *url.URL) ([]byte, error) {
+func getWebpage(url string) ([]byte, error) {
 	// log.Printf("Fetching HTML from '%s'", u)
-	resp, err := http.Get(u.String())
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}

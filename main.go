@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 
 	"github.com/jamesroutley/natto/crawler"
@@ -43,13 +42,6 @@ func throw(message string) {
 func main() {
 	flag.Parse()
 	setupLogging(*debug)
-	rawurl := flag.Arg(0)
-	u, err := url.ParseRequestURI(rawurl)
-	if err != nil {
-		message := fmt.Sprintf(
-			"Could not validate url '%s'.\n%v.\n", rawurl, err)
-		throw(message)
-	}
-	// c := crawler.New(u, *concur)
-	crawler.Crawl(u, *concur)
+	url := flag.Arg(0)
+	crawler.Crawl(url, *concur)
 }
